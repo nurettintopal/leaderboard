@@ -17,20 +17,54 @@ type Player struct {
 	Username string
 }
 
+type LeaderboardService struct {
+	redisClient *redis.Client
+}
+
+func NewLeaderboardService(redisClient *redis.Client) *LeaderboardService {
+	return &LeaderboardService{redisClient: redisClient}
+}
+
+func (ls *LeaderboardService) ClearLeaderboard() error {
+	return ls.redisClient.Del(ctx, "leaderboard").Err()
+}
+
+func (ls *LeaderboardService) AddPlayer(player Player) error {
+	return ls.redisClient.ZAdd(ctx, "leaderboard", &redis.Z{
+		Score:  float64(player.Score),
+		Member: player.ID,
+	}).Err()
+}
+
+func (ls *LeaderboardService) GetLeaderboard() ([]redis.Z, error) {
+	return ls.redisClient.ZRevRangeWithScores(ctx, "leaderboard", 0, -1).Result()
+}
+
+func (ls *LeaderboardService) GetPlayerRank(playerID string) (int64, error) {
+	return ls.redisClient.ZRevRank(ctx, "leaderboard", playerID).Result()
+}
+
 func main() {
 	client := createRedisClient()
 	defer client.Close()
 
-	clearLeaderboard(client)
-	addSamplePlayers(client, 100)
+	leaderboardService := NewLeaderboardService(client)
 
-	displayLeaderboard(client)
-	displayRank(client, "player2")
-	displayRank(client, "player4")
-	displayRank(client, "player8")
-	displayRank(client, "player16")
-	displayRank(client, "player32")
-	displayRank(client, "player64")
+	// Clear any previous data
+	if err := leaderboardService.ClearLeaderboard(); err != nil {
+		log.Fatalf("Failed to clear leaderboard: %v", err)
+	}
+
+	addSamplePlayers(leaderboardService, 100)
+
+	displayLeaderboard(leaderboardService)
+	displayRank(leaderboardService, "player2")
+	displayRank(leaderboardService, "player4")
+	displayRank(leaderboardService, "player8")
+	displayRank(leaderboardService, "player16")
+	displayRank(leaderboardService, "player32")
+	displayRank(leaderboardService, "player64")
+
 }
 
 func createRedisClient() *redis.Client {
@@ -41,14 +75,7 @@ func createRedisClient() *redis.Client {
 	})
 }
 
-func clearLeaderboard(client *redis.Client) {
-	err := client.Del(ctx, "leaderboard").Err()
-	if err != nil {
-		log.Fatalf("Failed to clear leaderboard: %v", err)
-	}
-}
-
-func addSamplePlayers(client *redis.Client, count int) {
+func addSamplePlayers(service *LeaderboardService, count int) {
 	for i := 1; i <= count; i++ {
 		player := Player{
 			ID:       fmt.Sprintf("player%d", i),
@@ -56,22 +83,14 @@ func addSamplePlayers(client *redis.Client, count int) {
 			Username: fmt.Sprintf("User%d", i),
 		}
 
-		addPlayerToLeaderboard(client, player)
+		if err := service.AddPlayer(player); err != nil {
+			log.Printf("Failed to add player %s to leaderboard: %v", player.ID, err)
+		}
 	}
 }
 
-func addPlayerToLeaderboard(client *redis.Client, player Player) {
-	err := client.ZAdd(ctx, "leaderboard", &redis.Z{
-		Score:  float64(player.Score),
-		Member: player.ID,
-	}).Err()
-	if err != nil {
-		log.Printf("Failed to add player %s to leaderboard: %v", player.ID, err)
-	}
-}
-
-func displayLeaderboard(client *redis.Client) {
-	leaderboard, err := client.ZRevRangeWithScores(ctx, "leaderboard", 0, -1).Result()
+func displayLeaderboard(service *LeaderboardService) {
+	leaderboard, err := service.GetLeaderboard()
 	if err != nil {
 		log.Fatalf("Failed to retrieve leaderboard: %v", err)
 	}
@@ -84,8 +103,8 @@ func displayLeaderboard(client *redis.Client) {
 	}
 }
 
-func displayRank(client *redis.Client, targetPlayerID string) {
-	rank, err := client.ZRevRank(ctx, "leaderboard", targetPlayerID).Result()
+func displayRank(service *LeaderboardService, targetPlayerID string) {
+	rank, err := service.GetPlayerRank(targetPlayerID)
 	if err != nil {
 		log.Fatalf("Failed to retrieve rank for player %s: %v", targetPlayerID, err)
 	}
