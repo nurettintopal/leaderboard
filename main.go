@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-
-	"github.com/go-redis/redis/v8"
 )
 
 var ctx = context.Background()
@@ -18,13 +16,8 @@ func main() {
 	leaderboardService := NewLeaderboardService(client)
 
 	var leaderboardName string
-	for i := 0; i < 10; i++ {
+	for i := 1; i < 10; i++ {
 		leaderboardName = fmt.Sprintf("leadershipboard-%d", i)
-
-		// Clear any previous data
-		if err := leaderboardService.ClearLeaderboard(leaderboardName); err != nil {
-			log.Fatalf("Failed to clear leaderboard: %v", err)
-		}
 
 		addSamplePlayers(leaderboardService, leaderboardName, 5)
 
@@ -35,14 +28,6 @@ func main() {
 		fmt.Println("--------")
 		fmt.Println("")
 	}
-}
-
-func createRedisClient() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
 }
 
 func addSamplePlayers(service *LeaderboardService, leaderboardName string, count int) {
