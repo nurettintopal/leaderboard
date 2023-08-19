@@ -33,6 +33,10 @@ func (ls *LeaderboardService) GetLeaderboard(leaderboardName string) ([]redis.Z,
 	return ls.redisClient.ZRevRangeWithScores(ctx, leaderboardName, 0, -1).Result()
 }
 
+func (ls *LeaderboardService) GetLeaderboardWithRange(leaderboardName string, startOffset int64, endOffset int64) ([]redis.Z, error) {
+	return ls.redisClient.ZRevRangeWithScores(ctx, leaderboardName, int64(startOffset), int64(endOffset)).Result()
+}
+
 func (ls *LeaderboardService) GetPlayerRank(leaderboardName string, playerID string) (int64, error) {
 	return ls.redisClient.ZRevRank(ctx, leaderboardName, playerID).Result()
 }

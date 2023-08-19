@@ -10,7 +10,7 @@ func createRedisClient() *redis.Client {
 	fmt.Println("Redis connection is completed")
 	fmt.Println("")
 	return redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "0.0.0.0:6379",
 		Password: "",
 		DB:       0,
 	})

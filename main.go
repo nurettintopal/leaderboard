@@ -16,13 +16,24 @@ func main() {
 	leaderboardService := NewLeaderboardService(client)
 
 	var leaderboardName string
-	for i := 1; i < 10; i++ {
-		leaderboardName = fmt.Sprintf("leadershipboard-%d", i)
+	boardCount := 1
+	playerCount := 100
+	targetPlayerID := "player-5"
+	for i := 1; i <= boardCount; i++ {
+		leaderboardName = fmt.Sprintf("board-%d", i)
 
-		addSamplePlayers(leaderboardService, leaderboardName, 5)
+		clearLeaderboard(leaderboardService, leaderboardName)
+		addSamplePlayers(leaderboardService, leaderboardName, playerCount)
 
-		displayLeaderboard(leaderboardService, leaderboardName)
-		displayRank(leaderboardService, leaderboardName, "player3")
+		rank := displayRank(leaderboardService, leaderboardName, targetPlayerID)
+
+		//displayLeaderboard(leaderboardService, leaderboardName)
+		fmt.Println()
+		displayLeaderboardWithRange(leaderboardService, leaderboardName, 0, 2)
+		fmt.Println("...")
+		displayLeaderboardWithRange(leaderboardService, leaderboardName, rank-2, rank+2)
+		fmt.Println("...")
+		displayLeaderboardWithRange(leaderboardService, leaderboardName, int64(int64(playerCount)-3), int64(playerCount))
 
 		fmt.Println("")
 		fmt.Println("--------")
@@ -33,7 +44,7 @@ func main() {
 func addSamplePlayers(service *LeaderboardService, leaderboardName string, count int) {
 	for i := 1; i <= count; i++ {
 		player := Player{
-			ID:       fmt.Sprintf("player%d", i),
+			ID:       fmt.Sprintf("player-%d", i),
 			Score:    rand.Intn(1000),
 			Username: fmt.Sprintf("User%d", i),
 		}
@@ -50,8 +61,6 @@ func displayLeaderboard(service *LeaderboardService, leaderboardName string) {
 		log.Fatalf("Failed to retrieve leaderboard: %v", err)
 	}
 
-	fmt.Printf("Board for %s:", leaderboardName)
-	fmt.Println()
 	for rank, member := range leaderboard {
 		playerID := member.Member.(string)
 		playerScore := int(member.Score)
@@ -59,11 +68,34 @@ func displayLeaderboard(service *LeaderboardService, leaderboardName string) {
 	}
 }
 
-func displayRank(service *LeaderboardService, leaderboardName string, targetPlayerID string) {
+func displayLeaderboardWithRange(service *LeaderboardService, leaderboardName string, startOffset int64, endOffset int64) {
+	leaderboard, err := service.GetLeaderboardWithRange(leaderboardName, startOffset, endOffset)
+
+	if err != nil {
+		log.Fatalf("Failed to retrieve leaderboard: %v", err)
+	}
+
+	for rank, member := range leaderboard {
+		playerID := member.Member.(string)
+		playerScore := int(member.Score)
+		fmt.Printf("%d. %s - Score: %d\n", startOffset+int64(rank)+1, playerID, playerScore)
+	}
+}
+
+func displayRank(service *LeaderboardService, leaderboardName string, targetPlayerID string) int64 {
 	rank, err := service.GetPlayerRank(leaderboardName, targetPlayerID)
 	if err != nil {
 		log.Fatalf("Failed to retrieve rank for player %s: %v", targetPlayerID, err)
 	}
 
-	fmt.Printf("%s is ranked #%d on the leaderboard.\n", targetPlayerID, rank+1)
+	fmt.Printf("%s is ranked #%d on the leaderboard(%s).\n", targetPlayerID, rank+1, leaderboardName)
+
+	return rank
+}
+
+func clearLeaderboard(service *LeaderboardService, leaderBoardName string) {
+	err := service.ClearLeaderboard(leaderBoardName)
+	if err != nil {
+		log.Fatalf("Failed to clear the board %s: %v", leaderBoardName, err)
+	}
 }
