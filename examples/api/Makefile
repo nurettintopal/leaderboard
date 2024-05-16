@@ -43,3 +43,6 @@ stop: ## Stop the container
 
 start: ## Start the container
 	docker start $(project_name)
+
+test: ## Run the tests
+	go test
